@@ -100,6 +100,10 @@ app.get('/', (req, res) => {
   res.send('Hellow from Doctor Uncle!')
 })
 
+app.get('/invalid', (req, res)=>{
+  res.send('invalid heroku url ')
+})
+
 app.listen(port, () => {
   console.log(`Doctor app listening on port ${port}`)
 })
