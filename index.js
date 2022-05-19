@@ -2,7 +2,7 @@ const express = require('express')
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
@@ -160,21 +160,6 @@ async function run() {
     */
 
 
-    // app.get('/booking', verifyJWT, async (req, res) => {
-    //   const patient = req.query.patient;
-    //   // const decodedEmail = req.decoded.email;
-    //   // if (patient === decodedEmail) {
-    //     // const query = { patient: patient };
-    //     const bookings = await bookingCollection.find(query).toArray();
-    //     res.send(bookings)
-    //   //   return res.send(bookings);
-    //   // }
-    //   // else {
-    //   //   return res.status(403).send({ message: 'forbidden access' });
-    //   // }
-    // })
-
-
 
     app.get('/booking', verifyJWT, async(req, res)=>{
       const patient = req.query.patient;
@@ -189,7 +174,7 @@ async function run() {
       }
     })
 
-    app.get('/booking/:id', verifyJWT, async (req, res) => {
+    app.get('/booking/:id', async(req, res) => {
       const id = req.params.id;
         const query = {_id: ObjectId(id)};
         const booking = await bookingCollection.findOne(query);
@@ -202,7 +187,6 @@ async function run() {
       // console.log(req.body)
        const booking = req.body;
        const query = {treatment: booking.treatment, date: booking.date, patient: booking.patient}
-       console.log(query)
        const exists = await bookingCollection.findOne(query);
        if(exists){
          return res.send({success: false, booking: exists})
