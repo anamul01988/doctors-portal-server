@@ -3,6 +3,9 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion } = require('mongodb');
+
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
 const app = express()
 const port = process.env.PORT || 5000;
 
@@ -38,6 +41,7 @@ async function run() {
     const bookingCollection = client.db('doctors_portal').collection('bookings');
     const userCollection = client.db('doctors_portal').collection('users');
     const doctorCollection = client.db('doctors_portal').collection('doctors');
+    const paymentCollection = client.db('doctors_portal').collection('payments');
 
     const verifyAdmin = async(req, res, next)=>{
       const requester = req.decoded.email;
@@ -49,7 +53,21 @@ async function run() {
         res.status(403).send({message: 'forbidden'});
       }
     }
+    
 
+    app.post('/create-payment-intent', verifyJWT, async(req, res)=>{
+      const service = req.body;
+      const price = service.price;
+      const amount = price*100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount:amount,
+        currency: 'usd',
+        payment_method_types:['card']
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret
+      })
+    })
 
     app.get('/service', async(req, res)=>{
       const query = {};
@@ -140,6 +158,24 @@ async function run() {
      * app.put('/booking/:id') // upsert ==> update (if exists) or insert (if doesn't exist)
      * app.delete('/booking/:id) //
     */
+
+
+    // app.get('/booking', verifyJWT, async (req, res) => {
+    //   const patient = req.query.patient;
+    //   // const decodedEmail = req.decoded.email;
+    //   // if (patient === decodedEmail) {
+    //     // const query = { patient: patient };
+    //     const bookings = await bookingCollection.find(query).toArray();
+    //     res.send(bookings)
+    //   //   return res.send(bookings);
+    //   // }
+    //   // else {
+    //   //   return res.status(403).send({ message: 'forbidden access' });
+    //   // }
+    // })
+
+
+
     app.get('/booking', verifyJWT, async(req, res)=>{
       const patient = req.query.patient;
       const decodedEmail = req.decoded.email;
@@ -151,6 +187,14 @@ async function run() {
       else {
         return res.status(403).send({ message: 'forbidden access' });
       }
+    })
+
+    app.get('/booking/:id', verifyJWT, async (req, res) => {
+      const id = req.params.id;
+        const query = {_id: ObjectId(id)};
+        const booking = await bookingCollection.findOne(query);
+        res.send(booking)
+    
     })
 
 
@@ -165,6 +209,22 @@ async function run() {
        }
        const result = await bookingCollection.insertOne(booking);
        return res.send({success: true, result});
+    })
+
+    app.patch('/booking/:id', verifyJWT, async(req, res)=>{
+      const id = req.params.id;
+      const payment = req.body;
+      const filter = {_id: ObjectId(id)};
+      const updatedDoc = {
+        $set: {
+          paid: true,
+          transactionId: payment.transactionId
+
+        }
+      }
+      const result = await paymentCollection.insertOne(payment);
+      const updatedBooking = await bookingCollection.updateOne(filter, updatedDoc);
+      res.send(updatedDoc)
     })
    
     app.get('/doctor',verifyJWT, verifyAdmin, async(req, res)=>{
